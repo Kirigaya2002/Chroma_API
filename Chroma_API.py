@@ -1,8 +1,12 @@
 import os
+from fastapi import FastAPI, UploadFile, File
+from fastapi.responses import JSONResponse
 import chromadb
 from chromadb.config import Settings
-from Pdf_Process import extraer_texto_pdf
-from Docx_Process import extraer_texto_docx
+from Pdf_Process import extraer_texto_pdf as extract_text_pdf
+from Docx_Process import extraer_texto_docx as extract_text_docx
+
+app = FastAPI()
 
 # Configuración de ChromaDB (local)
 client = chromadb.PersistentClient(path="./chroma_storage")
@@ -10,39 +14,57 @@ client = chromadb.PersistentClient(path="./chroma_storage")
 # Crear una colección o acceder a una existente
 collection = client.get_or_create_collection(name="documentos")
 
-# Obtener todos los documentos guardados
-documentos = collection.get()
 
-# Mostrar resultados
-print("Documentos almacenados en ChromaDB:")
-for i in range(len(documentos["ids"])):
-    print(f"\nID: {documentos['ids'][i]}")
-    print(f"Texto: {documentos['documents'][i]}")
-    print(f"Metadatos: {documentos['metadatas'][i]}")
+@app.post("/process-docs/")
+async def process_docs_and_save_in_chroma(files: list[UploadFile] = File(...)):
+    documents = []
 
-def procesar_archivos_y_guardar():
-    ruta_base = os.path.dirname(os.path.abspath(__file__))
-    documentos = []
+    for file in files:
+        content = await file.read()
+        file_path = f"./temp_{file.filename}"
 
-    for archivo in os.listdir(ruta_base):
-        if archivo.endswith(".pdf"):
-            texto = extraer_texto_pdf(os.path.join(ruta_base, archivo))
-        elif archivo.endswith(".docx"):
-            texto = extraer_texto_docx(os.path.join(ruta_base, archivo))
+        # Guardar archivo temporalmente
+        with open(file_path, "wb") as temp_file:
+            temp_file.write(content)
+
+        # Procesar según el tipo de archivo
+        if file.filename.endswith(".pdf"):
+            text = extract_text_pdf(file_path)
+        elif file.filename.endswith(".docx"):
+            text = extract_text_docx(file_path)
         else:
-            continue
+            os.remove(file_path)
+            return JSONResponse(
+                content={"error": f"Unsupported file type: {file.filename}"},
+                status_code=400,
+            )
 
-        documentos.append((archivo, texto))
+        documents.append((file.filename, text))
+        os.remove(file_path)  # Eliminar archivo temporal
 
-    for nombre, contenido in documentos:
+    # Guardar documentos en ChromaDB
+    for name, content in documents:
         collection.add(
-            documents=[contenido],
-            metadatas=[{"nombre": nombre}],
-            ids=[nombre]  # Usamos el nombre del archivo como ID único
+            documents=[content],
+            metadatas=[{"nombre": name}],
+            ids=[name]
         )
 
-    print(f"{len(documentos)} documentos procesados y almacenados en ChromaDB.")
+    return {"message": f"{len(documents)} documentos procesados y almacenados en ChromaDB."}
 
 
-if __name__ == "__main__":
-    procesar_archivos_y_guardar()
+@app.get("/get-documents/")
+def show_documents():
+    # Obtener todos los documentos guardados
+    documents = collection.get()
+
+    # Formatear resultados
+    result = []
+    for i in range(len(documents["ids"])):
+        result.append({
+            "id": documents["ids"][i],
+            "texto": documents["documents"][i],
+            "metadatos": documents["metadatas"][i],
+        })
+
+    return {"documentos": result}
