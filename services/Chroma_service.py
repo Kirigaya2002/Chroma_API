@@ -1,5 +1,6 @@
 from chromadb import PersistentClient
 from uuid import uuid4
+from utils.Text_chunker import split_into_chunks
 
 class ChromaService:
 
@@ -10,12 +11,14 @@ class ChromaService:
 
     # Procesa y guarda documentos en ChromaDB
     def add_document(self, filename: str, content: str):
-        doc_id = str(uuid4())  # Genera un ID único para el documento
-        self.collection.add(
-            documents=[content],
-            metadatas=[{"nombre": filename}],
-            ids=[doc_id]
-        )
+        chucks = split_into_chunks(content) # Divide el contenido en fragmentos (chunks)
+        for chuck in chucks:
+            doc_id = str(uuid4())  # Genera un ID único para el documento
+            self.collection.add(
+                documents=[chuck],
+                metadatas=[{"nombre": filename}],
+                ids=[doc_id]
+            )
 
     # Muestra todos los documentos en ChromaDB
     def get_all_documents(self):
