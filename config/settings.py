@@ -14,7 +14,8 @@ TEXT_CHUNK_SIZE = 500
 TEXT_CHUNK_OVERLAP = 50
 
 # Configuración de API externa
-CHROMA_API_URL = "http://vector-api:8001/store-chunks/"
+#CHROMA_API_URL = "http://vector-api:8001/store-chunks/"
+CHROMA_API_URL = "http://localhost:8001/store-chunks/"
 
 # Configuración de archivos temporales
 TEMP_FILE_PREFIX = "temp_"

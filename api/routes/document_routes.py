@@ -33,9 +33,9 @@ async def upload_docs(files: List[UploadFile] = File(...)):
         # Limpiar archivos temporales
         temp_service.delete_temp_files(temp_files)
 
-        # Imprimir los chunks para depuración
-        for chunk in all_chunks:
-            print(chunk)  # Esto imprimirá cada chunk en la consola del servidor FastAPI
+        # Imprimir los chunks en formato JSON
+        print("Chunks en formato JSON:")
+        print(all_chunks)
         # Enviar chunks a la API de Chroma
         ChromaApiService.send_chunks(all_chunks)
 
